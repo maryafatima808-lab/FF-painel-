@@ -20,7 +20,7 @@ jobs:
       - name: Configurar Gradle
         uses: gradle/actions/setup-gradle@v3
         with:
-          gradle-version: '8.2.1'
+          gradle-version: '8.5'
 
       - name: Criar projeto EINBOT
         shell: bash
@@ -57,6 +57,7 @@ jobs:
           cat > gradle.properties <<'EOF'
           org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
           android.useAndroidX=true
+          android.nonTransitiveRClass=true
           EOF
 
           cat > app/build.gradle <<'EOF'
@@ -74,6 +75,11 @@ jobs:
                   targetSdk 28
                   versionCode 1
                   versionName '1.0'
+              }
+              buildTypes {
+                  release {
+                      minifyEnabled false
+                  }
               }
           }
           EOF
@@ -268,7 +274,7 @@ jobs:
           public class OverlayService extends Service {
 
               public static final String ACTION_SHOW = "SHOW";
-              public static volatile boolean AIM_ON = false; // Variavel que liga a mira
+              public static volatile boolean AIM_ON = false;
               private WindowManager wm;
               private View panel;
               private View bubble;
@@ -334,7 +340,6 @@ jobs:
                   Switch control = new Switch(this);
                   control.setText("CONTROLE ON/OFF");
                   control.setTextColor(Color.WHITE);
-                  // AQUI ELE LIGA A VARIAVEL DA MIRA
                   control.setOnCheckedChangeListener((v,checked) -> AIM_ON = checked);
                   box.addView(control);
 
@@ -465,7 +470,6 @@ jobs:
                       int dx = i.getIntExtra("dx", 0), dy = i.getIntExtra("dy", 0); if (dx==0&&dy==0) return;
                       Path p = new Path(); int sx = 500, sy = 1000; p.moveTo(sx, sy);
                       Random r = new Random();
-                      // CURVA BEZIER + ANTIBAN
                       p.quadTo(sx + (dx/2) + r.nextInt(20) - 10, sy + (dy/2) + r.nextInt(20) - 10, sx+dx, sy+dy);
                       dispatchGesture(new GestureDescription.Builder().addStroke(new GestureDescription.StrokeDescription(p, 0, 15 + r.nextInt(15))).build(), null, null);
                   }};
