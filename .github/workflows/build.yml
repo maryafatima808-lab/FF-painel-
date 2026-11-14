@@ -23,13 +23,28 @@ jobs:
           mkdir -p app/src/main/res/values
           
           cat > settings.gradle <<'EOF'
-          include ':app'
+          pluginManagement {
+              repositories {
+                  google()
+                  mavenCentral()
+                  gradlePluginPortal()
+              }
+          }
+          dependencyResolutionManagement {
+              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
           rootProject.name = "aimbot"
+          include ':app'
           EOF
           
           cat > build.gradle <<'EOF'
-          buildscript { repositories { google(); mavenCentral() } dependencies { classpath 'com.android.tools.build:gradle:8.1.4' } }
-          allprojects { repositories { google(); mavenCentral() } }
+          plugins {
+              id 'com.android.application' version '8.2.2' apply false
+          }
           EOF
           
           cat > app/build.gradle <<'EOF'
