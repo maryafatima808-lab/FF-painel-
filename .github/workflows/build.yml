@@ -15,12 +15,12 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '11'
+          java-version: '17'
 
       - name: Configurar Gradle
         uses: gradle/actions/setup-gradle@v3
         with:
-          gradle-version: '7.5'
+          gradle-version: '8.5'
 
       - name: Criar projeto EINBOT
         shell: bash
@@ -31,11 +31,18 @@ jobs:
 
           cat > settings.gradle <<'EOF'
           pluginManagement {
-              repositories { google(); mavenCentral(); gradlePluginPortal() }
+              repositories {
+                  google()
+                  mavenCentral()
+                  gradlePluginPortal()
+              }
           }
           dependencyResolutionManagement {
               repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-              repositories { google(); mavenCentral() }
+              repositories {
+                  google()
+                  mavenCentral()
+              }
           }
           rootProject.name = "EINBOT"
           include ':app'
@@ -43,7 +50,7 @@ jobs:
 
           cat > build.gradle <<'EOF'
           plugins {
-              id 'com.android.application' version '7.4.2' apply false
+              id 'com.android.application' version '8.2.2' apply false
           }
           EOF
 
@@ -60,12 +67,12 @@ jobs:
 
           android {
               namespace 'com.aimbot.app'
-              compileSdk 33
+              compileSdk 34
 
               defaultConfig {
                   applicationId 'com.aimbot.app'
                   minSdk 23
-                  targetSdk 28
+                  targetSdk 34
                   versionCode 1
                   versionName '1.0'
               }
