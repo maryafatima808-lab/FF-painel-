@@ -16,8 +16,11 @@ jobs:
         with:
           gradle-version: '8.5'
           
-      - name: Write Project Files
+      - name: Create Project Structure
         run: |
+          # REMOVE TUDO O QUE ESTIVER NA RAIZ PARA NÃO DAR CONFLITO
+          rm -rf app build.gradle settings.gradle gradle.properties
+          
           mkdir -p app/src/main/java/com/aimbot/app
           mkdir -p app/src/main/res/xml
           mkdir -p app/src/main/res/values
