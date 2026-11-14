@@ -15,12 +15,12 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: '11'
 
       - name: Configurar Gradle
         uses: gradle/actions/setup-gradle@v3
         with:
-          gradle-version: '8.5'
+          gradle-version: '7.5'
 
       - name: Criar projeto EINBOT
         shell: bash
@@ -50,7 +50,7 @@ jobs:
 
           cat > build.gradle <<'EOF'
           plugins {
-              id 'com.android.application' version '8.2.2' apply false
+              id 'com.android.application' version '7.4.2' apply false
           }
           EOF
 
@@ -67,7 +67,7 @@ jobs:
 
           android {
               namespace 'com.aimbot.app'
-              compileSdk 34
+              compileSdk 33
 
               defaultConfig {
                   applicationId 'com.aimbot.app'
