@@ -185,7 +185,7 @@ jobs:
           EOF
 
       - name: Build APK
-        run: gradle assembleDebug
+        run: gradle assembleDebug --project-dir .
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
