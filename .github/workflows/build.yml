@@ -185,9 +185,8 @@ jobs:
           EOF
 
       - name: Build APK
-        run: |
-          cd ${{ github.workspace }}
-          gradle assembleDebug
+        run: gradle assembleDebug
+        working-directory: ${{ github.workspace }}
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
