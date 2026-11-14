@@ -16,7 +16,7 @@ jobs:
         with:
           gradle-version: '8.5'
           
-      - name: Write Project Files
+      - name: Create Project Structure
         run: |
           mkdir -p app/src/main/java/com/aimbot/app
           mkdir -p app/src/main/res/xml
@@ -56,7 +56,7 @@ jobs:
               buildTypes { release { minifyEnabled false; signingConfig signingConfigs.debug } }
               compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
           }
-          dependencies { implementation 'androidx.appcompat:appcompat:1.6.1'; implementation 'com.google.android.material:material:1.11.0' }
+          dependencies { implementation 'androidx.appcompat:appcompat:1.6.1' }
           EOF
           
           cat > app/src/main/AndroidManifest.xml <<'EOF'
@@ -200,8 +200,7 @@ jobs:
           EOF
 
       - name: Build APK
-        run: gradle assembleDebug
-        working-directory: ${{ github.workspace }}
+        run: cd $GITHUB_WORKSPACE && gradle assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
