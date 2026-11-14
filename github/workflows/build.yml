@@ -1,0 +1,194 @@
+name: build-apk
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: '8.5'
+          
+      - name: Write Project Files
+        run: |
+          mkdir -p app/src/main/java/com/aimbot/app
+          mkdir -p app/src/main/res/xml
+          mkdir -p app/src/main/res/values
+          
+          cat > settings.gradle <<'EOF'
+          include ':app'
+          rootProject.name = "aimbot"
+          EOF
+          
+          cat > build.gradle <<'EOF'
+          buildscript { repositories { google(); mavenCentral() } dependencies { classpath 'com.android.tools.build:gradle:8.1.4' } }
+          allprojects { repositories { google(); mavenCentral() } }
+          EOF
+          
+          cat > app/build.gradle <<'EOF'
+          plugins { id 'com.android.application' }
+          android {
+              namespace 'com.aimbot.app'
+              compileSdk 34
+              defaultConfig { applicationId "com.aimbot.app"; minSdk 26; targetSdk 34; versionCode 1; versionName "1.0" }
+              buildTypes { release { minifyEnabled false; signingConfig signingConfigs.debug } }
+              compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+          }
+          dependencies { implementation 'androidx.appcompat:appcompat:1.6.1'; implementation 'com.google.android.material:material:1.11.0' }
+          EOF
+          
+          cat > app/src/main/AndroidManifest.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+              <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
+              <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+              <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION"/>
+              <queries><package android:name="com.dts.freefireth"/><package android:name="com.dts.freefiremax"/></queries>
+              <application android:label="AIMBOT" android:theme="@style/Theme.AppCompat.NoActionBar">
+                  <activity android:name=".MainActivity" android:exported="true">
+                      <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>
+                  </activity>
+                  <service android:name=".OverlayService" android:exported="false" android:foregroundServiceType="specialUse"/>
+                  <service android:name=".ScreenCaptureService" android:exported="false" android:foregroundServiceType="mediaProjection"/>
+                  <service android:name=".AimAccessibilityService" android:exported="true" android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+                      <intent-filter><action android:name="android.accessibilityservice.AccessibilityService"/></intent-filter>
+                      <meta-data android:name="android.accessibilityservice" android:resource="@xml/accessibility_service_config"/>
+                  </service>
+              </application>
+          </manifest>
+          EOF
+          
+          cat > app/src/main/res/xml/accessibility_service_config.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <accessibility-service xmlns:android="http://schemas.android.com/apk/res/android" android:accessibilityEventTypes="typeAllMask" android:accessibilityFeedbackType="feedbackGeneric" android:accessibilityFlags="flagDefault" android:canPerformGestures="true" android:canRetrieveWindowContent="false" android:notificationTimeout="100" android:description="@string/accessibility_desc"/>
+          EOF
+          
+          cat > app/src/main/res/values/strings.xml <<'EOF'
+          <resources><string name="app_name">AIMBOT</string><string name="accessibility_desc">Executa gestos.</string></resources>
+          EOF
+          
+          cat > app/src/main/java/com/aimbot/app/MainActivity.java <<'EOF'
+          package com.aimbot.app;
+          import android.app.Activity; import android.content.Context; import android.content.Intent; import android.media.projection.MediaProjectionManager; import android.net.Uri; import android.os.Build; import android.os.Bundle; import android.provider.Settings; import androidx.appcompat.app.AppCompatActivity;
+          public class MainActivity extends AppCompatActivity {
+              private MediaProjectionManager mpManager;
+              @Override protected void onCreate(Bundle b) {
+                  super.onCreate(b);
+                  android.widget.LinearLayout l = new android.widget.LinearLayout(this); l.setOrientation(1); l.setGravity(17); l.setBackgroundColor(0xFF0A0A0A);
+                  android.widget.Button btn = new android.widget.Button(this); btn.setText("INJETAR"); btn.setTextColor(0xFFFFFFFF); btn.setBackgroundColor(0xFFFF3B30);
+                  l.addView(btn); setContentView(l);
+                  mpManager = (MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
+                  btn.setOnClickListener(v -> {
+                      if (!Settings.canDrawOverlays(this)) { startActivity(new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:" + getPackageName()))); }
+                      else { startActivityForResult(mpManager.createScreenCaptureIntent(), 101); }
+                  });
+              }
+              @Override protected void onActivityResult(int req, int res, Intent data) {
+                  super.onActivityResult(req, res, data);
+                  if (req == 101 && res == Activity.RESULT_OK) {
+                      Intent cap = new Intent(this, ScreenCaptureService.class); cap.setAction("start"); cap.putExtra("resultCode", res); cap.putExtra("data", data);
+                      if (Build.VERSION.SDK_INT >= 26) startForegroundService(cap); else startService(cap);
+                      Intent ov = new Intent(this, OverlayService.class); if (Build.VERSION.SDK_INT >= 26) startForegroundService(ov); else startService(ov);
+                      try {
+                          Intent launch = getPackageManager().getLaunchIntentForPackage("com.dts.freefireth");
+                          if (launch == null) launch = getPackageManager().getLaunchIntentForPackage("com.dts.freefiremax");
+                          if (launch != null) { launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK); startActivity(launch); }
+                      } catch (Exception e) {}
+                      moveTaskToBack(true);
+                  }
+              }
+          }
+          EOF
+          
+          cat > app/src/main/java/com/aimbot/app/OverlayService.java <<'EOF'
+          package com.aimbot.app;
+          import android.app.*; import android.content.Context; import android.content.Intent; import android.graphics.*; import android.os.Build; import android.os.IBinder; import android.view.*; import android.widget.*;
+          public class OverlayService extends Service {
+              private WindowManager wm; private View panel; private WindowManager.LayoutParams lp;
+              public static volatile boolean AIM_ON = false; public static volatile int SMOOTH = 4;
+              @Override public void onCreate() {
+                  super.onCreate(); wm = (WindowManager) getSystemService(WINDOW_SERVICE);
+                  NotificationChannel ch = new NotificationChannel("f", "f", NotificationManager.IMPORTANCE_LOW); getSystemService(NotificationManager.class).createNotificationChannel(ch);
+                  startForeground(1, new Notification.Builder(this, "f").setContentTitle("AIMBOT").setSmallIcon(android.R.drawable.ic_menu_camera).build());
+                  
+                  LinearLayout l = new LinearLayout(this); l.setOrientation(1); l.setBackgroundColor(0xEE1A1A1A); l.setPadding(40,40,40,40);
+                  Switch swAim = new Switch(this); swAim.setText("AIMBOT (CABEÇA)"); swAim.setTextColor(0xFFFFFFFF); swAim.setOnCheckedChangeListener((b, v) -> AIM_ON = v);
+                  Button btnMin = new Button(this); btnMin.setText("MINIMIZAR"); btnMin.setOnClickListener(v -> { wm.removeView(l); });
+                  Button btnClose = new Button(this); btnClose.setText("DESCONECTAR"); btnClose.setOnClickListener(v -> { stopSelf(); });
+                  l.addView(swAim); l.addView(btnMin); l.addView(btnClose);
+                  
+                  panel = l; lp = new WindowManager.LayoutParams(-2, -2, Build.VERSION.SDK_INT >= 26 ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY : WindowManager.LayoutParams.TYPE_PHONE, WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE, PixelFormat.TRANSLUCENT);
+                  lp.gravity = Gravity.TOP | Gravity.START; lp.x = 50; lp.y = 150; wm.addView(panel, lp);
+              }
+              @Override public void onDestroy() { super.onDestroy(); if (panel != null) wm.removeView(panel); stopService(new Intent(this, ScreenCaptureService.class)); }
+              @Override public IBinder onBind(Intent i) { return null; }
+          }
+          EOF
+          
+          cat > app/src/main/java/com/aimbot/app/ScreenCaptureService.java <<'EOF'
+          package com.aimbot.app;
+          import android.app.*; import android.content.*; import android.graphics.PixelFormat; import android.hardware.display.*; import android.media.Image; import android.media.ImageReader; import android.media.projection.*; import android.os.*; import android.util.DisplayMetrics; import android.view.WindowManager; import java.nio.ByteBuffer;
+          public class ScreenCaptureService extends Service {
+              private MediaProjection proj; private VirtualDisplay vd; private ImageReader rd; private int W, H;
+              @Override public int onStartCommand(Intent intent, int flags, int startId) {
+                  if (intent == null) return 2; startForeground(2, new Notification.Builder(this, "f").setContentTitle("Cap").setSmallIcon(android.R.drawable.ic_menu_camera).build());
+                  DisplayMetrics m = new DisplayMetrics(); ((WindowManager) getSystemService(WINDOW_SERVICE)).getDefaultDisplay().getRealMetrics(m); W = m.widthPixels; H = m.heightPixels;
+                  proj = ((MediaProjectionManager) getSystemService(MEDIA_PROJECTION_SERVICE)).getMediaProjection(intent.getIntExtra("resultCode", 0), (Intent) intent.getParcelableExtra("data"));
+                  rd = ImageReader.newInstance(W, H, PixelFormat.RGBA_8888, 2); vd = proj.createVirtualDisplay("c", W, H, m.densityDpi, DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR, rd.getSurface(), null, new Handler(Looper.getMainLooper()));
+                  rd.setOnImageAvailableListener(r -> {
+                      Image img = null; try { img = r.acquireLatestImage(); } catch (Exception e) {}
+                      if (img == null) return;
+                      if (OverlayService.AIM_ON) {
+                          ByteBuffer buf = img.getPlanes()[0].getBuffer(); int cx = W/2, cy = H/2; int f = 200; int bx = -1, by = -1; int bd = f*f;
+                          for (int y = cy-f; y < cy+f; y+=8) { if (y<0||y>=H) continue; for (int x = cx-f; x < cx+f; x+=8) { if (x<0||x>=W) continue; int off = y*img.getPlanes()[0].getRowStride() + x*img.getPlanes()[0].getPixelStride();
+                              int red = buf.get(off)&0xFF, grn = buf.get(off+1)&0xFF, blu = buf.get(off+2)&0xFF;
+                              if (red > 150 && red > grn+50 && red > blu+50) { int d = (x-cx)*(x-cx)+(y-cy)*(y-cy); if (d < bd) { bd = d; bx = x; by = y; } }
+                          }}
+                          if (bx != -1) { 
+                              Intent i = new Intent("com.aimbot.AIM_CMD"); i.setPackage(getPackageName()); 
+                              i.putExtra("dx", (bx-cx)/OverlayService.SMOOTH); i.putExtra("dy", ((by-cy)-120)/OverlayService.SMOOTH); 
+                              sendBroadcast(i); 
+                          }
+                      }
+                      img.close();
+                  }, new Handler(Looper.getMainLooper()));
+                  return 2;
+              }
+              @Override public IBinder onBind(Intent i) { return null; }
+          }
+          EOF
+          
+          cat > app/src/main/java/com/aimbot/app/AimAccessibilityService.java <<'EOF'
+          package com.aimbot.app;
+          import android.accessibilityservice.*; import android.content.*; import android.graphics.Path; import android.view.accessibility.AccessibilityEvent; import java.util.Random;
+          public class AimAccessibilityService extends AccessibilityService {
+              @Override public void onServiceConnected() {
+                  BroadcastReceiver rx = new BroadcastReceiver() { @Override public void onReceive(Context c, Intent i) {
+                      int dx = i.getIntExtra("dx", 0), dy = i.getIntExtra("dy", 0); if (dx==0&&dy==0) return;
+                      Path p = new Path(); int sx = 500, sy = 1000; p.moveTo(sx, sy);
+                      Random r = new Random();
+                      p.quadTo(sx + (dx/2) + r.nextInt(20) - 10, sy + (dy/2) + r.nextInt(20) - 10, sx+dx, sy+dy);
+                      dispatchGesture(new GestureDescription.Builder().addStroke(new GestureDescription.StrokeDescription(p, 0, 15 + r.nextInt(15))).build(), null, null);
+                  }};
+                  if (android.os.Build.VERSION.SDK_INT >= 33) registerReceiver(rx, new IntentFilter("com.aimbot.AIM_CMD"), Context.RECEIVER_NOT_EXPORTED); else registerReceiver(rx, new IntentFilter("com.aimbot.AIM_CMD"));
+              }
+              @Override public void onAccessibilityEvent(AccessibilityEvent e) {}
+              @Override public void onInterrupt() {}
+          }
+          EOF
+
+      - name: Build APK
+        run: ./gradlew assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: AIMBOT-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
