@@ -6,75 +6,68 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Baixar projeto
-        uses: actions/checkout@v4
-
-      - name: Configurar Java
+      - uses: actions/checkout@v4
+      
+      - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
-
-      - name: Configurar Gradle
+          
+      - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
         with:
           gradle-version: '8.5'
-
-      - name: Criar projeto EINBOT
-        shell: bash
+          
+      - name: Create Project Structure
         run: |
           mkdir -p app/src/main/java/com/aimbot/app
           mkdir -p app/src/main/res/values
           mkdir -p app/src/main/res/xml
 
           cat > settings.gradle <<'EOF'
-          pluginManagement {
-              repositories {
-                  google()
-                  mavenCentral()
-                  gradlePluginPortal()
-              }
-          }
-          dependencyResolutionManagement {
-              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-              repositories {
-                  google()
-                  mavenCentral()
-              }
-          }
           rootProject.name = "EINBOT"
           include ':app'
           EOF
 
           cat > build.gradle <<'EOF'
-          plugins {
-              id 'com.android.application' version '8.2.2' apply false
+          buildscript {
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+              dependencies {
+                  classpath 'com.android.tools.build:gradle:8.1.4'
+              }
+          }
+          allprojects {
+              repositories {
+                  google()
+                  mavenCentral()
+              }
           }
           EOF
 
           cat > gradle.properties <<'EOF'
-          org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
           android.useAndroidX=true
-          android.nonTransitiveRClass=true
+          android.enableJetifier=true
+          org.gradle.jvmargs=-Xmx2048m
           EOF
 
           cat > app/build.gradle <<'EOF'
-          plugins {
-              id 'com.android.application'
-          }
+          apply plugin: 'com.android.application'
 
           android {
               namespace 'com.aimbot.app'
-              compileSdk 34
+              compileSdk 33
 
               defaultConfig {
-                  applicationId 'com.aimbot.app'
+                  applicationId "com.aimbot.app"
                   minSdk 23
-                  targetSdk 34
+                  targetSdk 33
                   versionCode 1
-                  versionName '1.0'
+                  versionName "1.0"
               }
               buildTypes {
                   release {
@@ -87,10 +80,7 @@ jobs:
           cat > app/src/main/res/values/styles.xml <<'EOF'
           <resources>
               <style name="AppTheme" parent="@android:style/Theme.Material.NoActionBar">
-                  <item name="android:fontFamily">sans</item>
                   <item name="android:colorAccent">#B45CFF</item>
-                  <item name="android:statusBarColor">#10091B</item>
-                  <item name="android:navigationBarColor">#10091B</item>
               </style>
           </resources>
           EOF
@@ -106,50 +96,27 @@ jobs:
 
           cat > app/src/main/AndroidManifest.xml <<'EOF'
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-
               <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
               <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
               <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION"/>
-
               <queries>
                   <package android:name="com.dts.freefireth"/>
                   <package android:name="com.dts.freefiremax"/>
               </queries>
-
-              <application
-                  android:theme="@style/AppTheme"
-                  android:label="EINBOT VIP"
-                  android:allowBackup="false">
-
-                  <activity
-                      android:name=".MainActivity"
-                      android:exported="true">
+              <application android:theme="@style/AppTheme" android:label="EINBOT VIP">
+                  <activity android:name=".MainActivity" android:exported="true">
                       <intent-filter>
                           <action android:name="android.intent.action.MAIN"/>
                           <category android:name="android.intent.category.LAUNCHER"/>
                       </intent-filter>
                   </activity>
-
-                  <service
-                      android:name=".OverlayService"
-                      android:exported="false"
-                      android:stopWithTask="false"/>
-                      
-                  <service
-                      android:name=".CaptureService"
-                      android:exported="false"
-                      android:foregroundServiceType="mediaProjection"/>
-                      
-                  <service
-                      android:name=".AimAccessibilityService"
-                      android:exported="true"
-                      android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+                  <service android:name=".OverlayService" android:exported="false" />
+                  <service android:name=".CaptureService" android:exported="false" android:foregroundServiceType="mediaProjection"/>
+                  <service android:name=".AimAccessibilityService" android:exported="true" android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
                       <intent-filter>
                           <action android:name="android.accessibilityservice.AccessibilityService"/>
                       </intent-filter>
-                      <meta-data
-                          android:name="android.accessibilityservice"
-                          android:resource="@xml/accessibility_config"/>
+                      <meta-data android:name="android.accessibilityservice" android:resource="@xml/accessibility_config"/>
                   </service>
               </application>
           </manifest>
@@ -157,7 +124,6 @@ jobs:
 
           cat > app/src/main/java/com/aimbot/app/MainActivity.java <<'EOF'
           package com.aimbot.app;
-
           import android.app.Activity;
           import android.content.Intent;
           import android.net.Uri;
@@ -168,40 +134,29 @@ jobs:
           import android.view.Gravity;
           import android.widget.*;
           import android.media.projection.MediaProjectionManager;
-
           public class MainActivity extends Activity {
-
               private static final int REQ_OVERLAY = 101;
               private static final int REQ_CAPTURE = 102;
               private String selectedPackage = "com.dts.freefireth";
-
               @Override
               protected void onCreate(Bundle b) {
                   super.onCreate(b);
-
                   LinearLayout root = new LinearLayout(this);
                   root.setOrientation(1);
                   root.setPadding(30,40,30,30);
                   root.setBackgroundColor(Color.rgb(16,9,27));
-
                   TextView title = new TextView(this);
                   title.setText("EINBOT VIP");
                   title.setTextColor(0xFFCA8AFF);
                   title.setTextSize(30);
                   title.setGravity(Gravity.CENTER);
                   root.addView(title);
-
                   Button normal = makeButton("FREE FIRE NORMAL");
                   Button max = makeButton("FREE FIRE MAX");
                   Button inject = makeButton("INJETAR");
-
-                  root.addView(normal);
-                  root.addView(max);
-                  root.addView(inject);
-
+                  root.addView(normal); root.addView(max); root.addView(inject);
                   normal.setOnClickListener(v -> selectedPackage = "com.dts.freefireth");
                   max.setOnClickListener(v -> selectedPackage = "com.dts.freefiremax");
-
                   inject.setOnClickListener(v -> {
                       if (!Settings.canDrawOverlays(this)) {
                           Intent permission = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:" + getPackageName()));
@@ -210,15 +165,12 @@ jobs:
                           pedirCaptura();
                       }
                   });
-
                   setContentView(root);
               }
-
               private void pedirCaptura() {
                   MediaProjectionManager mp = (MediaProjectionManager) getSystemService(MEDIA_PROJECTION_SERVICE);
                   startActivityForResult(mp.createScreenCaptureIntent(), REQ_CAPTURE);
               }
-
               private Button makeButton(String text) {
                   Button b = new Button(this);
                   b.setText(text);
@@ -226,32 +178,23 @@ jobs:
                   b.setBackgroundColor(0xFF632A91);
                   return b;
               }
-
               private void startPanel(Intent data, int resultCode) {
                   Intent service = new Intent(this, OverlayService.class);
-                  service.setAction(OverlayService.ACTION_SHOW);
-                  service.putExtra("game", selectedPackage);
-
                   if (Build.VERSION.SDK_INT >= 26) startForegroundService(service);
                   else startService(service);
-
                   Intent cap = new Intent(this, CaptureService.class);
                   cap.putExtra("resultCode", resultCode);
                   cap.putExtra("data", data);
                   if (Build.VERSION.SDK_INT >= 26) startForegroundService(cap);
                   else startService(cap);
-
                   Intent game = getPackageManager().getLaunchIntentForPackage(selectedPackage);
                   if (game != null) startActivity(game);
-                  else Toast.makeText(this, "Jogo não instalado", Toast.LENGTH_LONG).show();
               }
-
               @Override
               protected void onActivityResult(int requestCode, int resultCode, Intent data) {
                   super.onActivityResult(requestCode, resultCode, data);
                   if (requestCode == REQ_OVERLAY) {
                       if (Settings.canDrawOverlays(this)) pedirCaptura();
-                      else Toast.makeText(this, "Permissão necessária", Toast.LENGTH_SHORT).show();
                   } else if (requestCode == REQ_CAPTURE && resultCode == RESULT_OK) {
                       startPanel(data, resultCode);
                   }
@@ -261,7 +204,6 @@ jobs:
 
           cat > app/src/main/java/com/aimbot/app/OverlayService.java <<'EOF'
           package com.aimbot.app;
-
           import android.app.*;
           import android.content.*;
           import android.graphics.Color;
@@ -270,160 +212,53 @@ jobs:
           import android.provider.Settings;
           import android.view.*;
           import android.widget.*;
-
           public class OverlayService extends Service {
-
-              public static final String ACTION_SHOW = "SHOW";
               public static volatile boolean AIM_ON = false;
               private WindowManager wm;
               private View panel;
-              private View bubble;
-              private WindowManager.LayoutParams panelParams;
-              private WindowManager.LayoutParams bubbleParams;
-              private String game = "com.dts.freefireth";
-
-              private int dp(float n) { return (int)(n * getResources().getDisplayMetrics().density); }
-
               @Override
               public void onCreate() {
                   super.onCreate();
                   wm = (WindowManager)getSystemService(WINDOW_SERVICE);
-
                   if (Build.VERSION.SDK_INT >= 26) {
                       NotificationChannel channel = new NotificationChannel("einbot", "EINBOT VIP", NotificationManager.IMPORTANCE_LOW);
                       getSystemService(NotificationManager.class).createNotificationChannel(channel);
                   }
                   Notification.Builder notification = Build.VERSION.SDK_INT >= 26 ? new Notification.Builder(this,"einbot") : new Notification.Builder(this);
-                  startForeground(10,notification.setContentTitle("EINBOT VIP").setContentText("Painel flutuante ativo").setSmallIcon(android.R.drawable.ic_menu_view).build());
+                  startForeground(10,notification.setContentTitle("EINBOT VIP").setSmallIcon(android.R.drawable.ic_menu_view).build());
               }
-
               @Override
               public int onStartCommand(Intent intent,int flags,int id) {
-                  if (intent != null && intent.hasExtra("game")) game = intent.getStringExtra("game");
                   if (Settings.canDrawOverlays(this)) showPanel();
                   return START_STICKY;
               }
-
-              private int windowType() {
-                  return Build.VERSION.SDK_INT >= 26 ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY : WindowManager.LayoutParams.TYPE_PHONE;
-              }
-
-              private LinearLayout createBox() {
+              private void showPanel() {
                   LinearLayout box = new LinearLayout(this);
                   box.setOrientation(1);
-                  box.setPadding(dp(12),dp(10),dp(12),dp(10));
+                  box.setPadding(30,30,30,30);
                   box.setBackgroundColor(0xEE190D27);
-                  return box;
-              }
-
-              private Button addButton(LinearLayout box,String text) {
-                  Button button = new Button(this);
-                  button.setText(text);
-                  button.setTextColor(Color.WHITE);
-                  button.setBackgroundColor(0xFF682A99);
-                  box.addView(button);
-                  return button;
-              }
-
-              private void showPanel() {
-                  removePanel();
-                  removeBubble();
-
-                  LinearLayout box = createBox();
-
-                  TextView title = new TextView(this);
-                  title.setText("EINBOT VIP");
-                  title.setTextColor(0xFFD6A4FF);
-                  title.setTextSize(21);
-                  box.addView(title);
-
                   Switch control = new Switch(this);
                   control.setText("CONTROLE ON/OFF");
                   control.setTextColor(Color.WHITE);
                   control.setOnCheckedChangeListener((v,checked) -> AIM_ON = checked);
                   box.addView(control);
-
-                  Button minimize = addButton(box,"MINIMIZAR");
-                  Button close = addButton(box,"FECHAR");
-                  Button disconnect = addButton(box,"DESCONECTAR");
-
-                  minimize.setOnClickListener(v -> minimizePanel());
-                  close.setOnClickListener(v -> removePanel());
-                  disconnect.setOnClickListener(v -> {
-                      removePanel();
-                      removeBubble();
-                      stopForeground(true);
-                      stopSelf();
-                  });
-
+                  Button close = new Button(this);
+                  close.setText("FECHAR");
+                  close.setOnClickListener(v -> stopSelf());
+                  box.addView(close);
                   panel = box;
-
-                  panelParams = new WindowManager.LayoutParams(
-                      dp(235),
+                  WindowManager.LayoutParams panelParams = new WindowManager.LayoutParams(
                       WindowManager.LayoutParams.WRAP_CONTENT,
-                      windowType(),
+                      WindowManager.LayoutParams.WRAP_CONTENT,
+                      Build.VERSION.SDK_INT >= 26 ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY : WindowManager.LayoutParams.TYPE_PHONE,
                       WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
                       PixelFormat.TRANSLUCENT
                   );
-
                   panelParams.gravity = Gravity.TOP | Gravity.START;
-                  panelParams.x = dp(20);
-                  panelParams.y = dp(130);
-
-                  enableDrag(box,panelParams);
+                  panelParams.x = 20; panelParams.y = 130;
                   wm.addView(panel,panelParams);
               }
-
-              private void minimizePanel() {
-                  removePanel();
-                  TextView icon = new TextView(this);
-                  icon.setText("E");
-                  icon.setTextColor(Color.WHITE);
-                  icon.setTextSize(22);
-                  icon.setGravity(Gravity.CENTER);
-                  icon.setBackgroundColor(0xFF762DB0);
-                  icon.setOnClickListener(v -> showPanel());
-                  bubble = icon;
-
-                  bubbleParams = new WindowManager.LayoutParams(
-                      dp(55),dp(55),windowType(),
-                      WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
-                      PixelFormat.TRANSLUCENT
-                  );
-                  bubbleParams.gravity = Gravity.TOP | Gravity.START;
-                  bubbleParams.x = dp(10);
-                  bubbleParams.y = dp(180);
-
-                  enableDrag(icon,bubbleParams);
-                  wm.addView(bubble,bubbleParams);
-              }
-
-              private void enableDrag(View view, WindowManager.LayoutParams params) {
-                  view.setOnTouchListener(new View.OnTouchListener() {
-                      int startX,startY;
-                      float touchX,touchY;
-
-                      public boolean onTouch(View v,MotionEvent event) {
-                          if (event.getAction()==MotionEvent.ACTION_DOWN) {
-                              startX=params.x; startY=params.y;
-                              touchX=event.getRawX(); touchY=event.getRawY();
-                              return false;
-                          }
-                          if (event.getAction()==MotionEvent.ACTION_MOVE) {
-                              params.x=startX+(int)(event.getRawX()-touchX);
-                              params.y=startY+(int)(event.getRawY()-touchY);
-                              try { wm.updateViewLayout(view,params); } catch (Exception ignored) {}
-                              return true;
-                          }
-                          return false;
-                      }
-                  });
-              }
-
-              private void removePanel() { if (panel != null) { try { wm.removeView(panel); } catch (Exception ignored) {} panel = null; } }
-              private void removeBubble() { if (bubble != null) { try { wm.removeView(bubble); } catch (Exception ignored) {} bubble = null; } }
-
-              @Override public void onDestroy() { removePanel(); removeBubble(); super.onDestroy(); }
+              @Override public void onDestroy() { if (panel != null) wm.removeView(panel); super.onDestroy(); }
               @Override public android.os.IBinder onBind(Intent intent) { return null; }
           }
           EOF
@@ -480,12 +315,11 @@ jobs:
           }
           EOF
 
-      - name: Compilar APK
-        run: gradle --no-daemon assembleDebug
+      - name: Build APK
+        run: gradle assembleDebug
 
-      - name: Disponibilizar APK
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: EINBOT-VIP-APK
+          name: EINBOT-APK
           path: app/build/outputs/apk/debug/app-debug.apk
-          if-no-files-found: error
